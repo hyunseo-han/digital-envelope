@@ -5,6 +5,11 @@
     <title>JSP 홈</title>
 </head>
 <body>
+	<h3>병원 사용자</h3>
+	<form action="${pageContext.request.contextPath}/hospital-login" method="get">
+	    <input type="submit" value="병원 사용자 로그인">
+	</form>
+	
 	<form action="${pageContext.request.contextPath}/generate-keys" method="get">
 	    <input type="submit" value="키 생성하기">
 	</form>
