@@ -21,17 +21,6 @@
         <url-pattern>/</url-pattern>
     </servlet-mapping>
 
-    <!-- ReservationServlet (기존 내용 유지) -->
-    <servlet>
-        <servlet-name>ReservationServlet</servlet-name>
-        <servlet-class>com.ddwu.hospital_reservation.controller.ReservationServlet</servlet-class>
-    </servlet>
-
-    <servlet-mapping>
-        <servlet-name>ReservationServlet</servlet-name>
-        <url-pattern>/reserve</url-pattern>
-    </servlet-mapping>
-
     <!-- index.jsp를 첫 페이지로 -->
     <welcome-file-list>
         <welcome-file>index.jsp</welcome-file>
