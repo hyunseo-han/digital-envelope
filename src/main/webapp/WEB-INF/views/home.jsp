@@ -5,8 +5,9 @@
     <title>JSP 홈</title>
 </head>
 <body>
-    <h1>${message}</h1>
-
+	<form action="generate-keys" method="get">
+	    <input type="submit" value="키 생성하기">
+	</form>
     <form action="reserve" method="post">
         이름: <input type="text" name="name"><br>
         생년월일: <input type="text" name="birth"><br>
