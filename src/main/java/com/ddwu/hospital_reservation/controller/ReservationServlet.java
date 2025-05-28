@@ -16,7 +16,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.PrivateKey;
-
 @WebServlet("/reserve")
 public class ReservationServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -30,16 +29,16 @@ public class ReservationServlet extends HttpServlet {
             String symptom = request.getParameter("symptom");
             String date = request.getParameter("date");
 
-            // 예약 정보 문자열 생성
             String reservationData = name + "," + birth + "," + department + "," + symptom + "," + date;
             byte[] dataBytes = reservationData.getBytes("UTF-8");
 
             System.out.println("예약 요청 수신: " + reservationData);
 
-            // 2. 전자서명 생성
-            PrivateKey userPrivateKey = KeyManager.loadPrivateKey("resources/keys/user_private.key");
-            byte[] digitalSignature = SignatureManager.signData(dataBytes, userPrivateKey);
+            // ✅ 2. 전자서명 생성 (절대 경로 기반으로 수정)
+            String keyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_private.key");
+            PrivateKey userPrivateKey = KeyManager.loadPrivateKey(keyPath);
 
+            byte[] digitalSignature = SignatureManager.signData(dataBytes, userPrivateKey);
             System.out.println("전자서명 생성 완료, 서명 길이: " + digitalSignature.length + " bytes");
 
             // 3. 예약정보 + 서명을 하나로 결합
@@ -60,7 +59,7 @@ public class ReservationServlet extends HttpServlet {
 
             System.out.println("전자봉투 암호화 완료, 봉투 크기: " + encryptedEnvelope.length + " bytes");
 
-            // 결과 페이지 이동
+            // ✅ 성공 메시지 전달
             request.setAttribute("result", "예약이 정상 처리되었습니다.");
             request.getRequestDispatcher("/result.jsp").forward(request, response);
 

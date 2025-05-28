@@ -9,8 +9,7 @@ public class HomeController {
 
     @GetMapping("/")
     public String home(Model model) {
-        model.addAttribute("message", "JSP를 사용하는 Spring MVC 예제입니다!");
-        return "index"; 
+        return "home"; 
     }
     
 }
