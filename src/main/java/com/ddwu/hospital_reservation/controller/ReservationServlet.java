@@ -59,7 +59,7 @@ public class ReservationServlet extends HttpServlet {
 
             System.out.println("전자봉투 암호화 완료, 봉투 크기: " + encryptedEnvelope.length + " bytes");
 
-            // ✅ 성공 메시지 전달
+            // 성공 메시지 전달
             request.setAttribute("result", "예약이 정상 처리되었습니다.");
             request.getRequestDispatcher("/WEB-INF/views/result.jsp").forward(request, response);
 

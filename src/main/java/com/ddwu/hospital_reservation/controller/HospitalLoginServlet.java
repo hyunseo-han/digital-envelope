@@ -1,6 +1,7 @@
 package com.ddwu.hospital_reservation.controller;
 
 import java.io.IOException;
+import java.util.Base64;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -15,22 +16,30 @@ public class HospitalLoginServlet extends HttpServlet {
             throws ServletException, IOException {
 
         // 쿠키가 존재하면 자동 로그인 처리
+        boolean authenticated = false;
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie c : cookies) {
                 if ("hospitalAuth".equals(c.getName())) {
-                    String value = c.getValue(); // ex: hospital;1234
-                    String[] parts = value.split(";");
-                    if (parts.length == 2 && "hospital".equals(parts[0]) && "1234".equals(parts[1])) {
-                        // 쿠키 유효 → 자동 로그인
-                        response.sendRedirect(request.getContextPath() + "/verify-reservation");
-                        return;
+                    try {
+                        String decoded = new String(Base64.getDecoder().decode(c.getValue()));
+                        String[] parts = decoded.split(":");
+                        if (parts.length == 2 && "hospital".equals(parts[0]) && "1234".equals(parts[1])) {
+                            authenticated = true;
+                            break;
+                        }
+                    } catch (Exception e) {
+                        // 무시
                     }
                 }
             }
         }
 
-        request.getRequestDispatcher("/WEB-INF/views/hospital_login.jsp").forward(request, response);
+        if (authenticated) {
+            response.sendRedirect(request.getContextPath() + "/verify-reservation");
+        } else {
+            request.getRequestDispatcher("/WEB-INF/views/hospital_login.jsp").forward(request, response);
+        }
     }
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
@@ -39,10 +48,12 @@ public class HospitalLoginServlet extends HttpServlet {
         String password = request.getParameter("password");
 
         if ("hospital".equals(username) && "1234".equals(password)) {
-            // 쿠키 생성 (유효기간 1시간)
-            Cookie authCookie = new Cookie("hospitalAuth", username + ";" + password);
+            String rawValue = username + ":" + password;
+            String encodedValue = Base64.getEncoder().encodeToString(rawValue.getBytes());
+
+            Cookie authCookie = new Cookie("hospitalAuth", encodedValue);
             authCookie.setMaxAge(60 * 60); // 1시간 유지
-            authCookie.setPath("/"); // 전체 경로에서 유효
+            authCookie.setPath("/");
 
             response.addCookie(authCookie);
             response.sendRedirect(request.getContextPath() + "/verify-reservation");
