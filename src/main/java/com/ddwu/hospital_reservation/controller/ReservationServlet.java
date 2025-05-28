@@ -61,12 +61,14 @@ public class ReservationServlet extends HttpServlet {
 
             // ✅ 성공 메시지 전달
             request.setAttribute("result", "예약이 정상 처리되었습니다.");
-            request.getRequestDispatcher("/result.jsp").forward(request, response);
+            request.getRequestDispatcher("/WEB-INF/views/result.jsp").forward(request, response);
+
 
         } catch (Exception e) {
             e.printStackTrace();
             request.setAttribute("error", "오류 발생: " + e.getMessage());
-            request.getRequestDispatcher("/error.jsp").forward(request, response);
+            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
+
         }
     }
 }

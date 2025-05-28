@@ -5,10 +5,11 @@
     <title>JSP 홈</title>
 </head>
 <body>
-	<form action="generate-keys" method="get">
+	<form action="${pageContext.request.contextPath}/generate-keys" method="get">
 	    <input type="submit" value="키 생성하기">
 	</form>
-    <form action="reserve" method="post">
+
+    <form action="${pageContext.request.contextPath}/reserve" method="post">
         이름: <input type="text" name="name"><br>
         생년월일: <input type="text" name="birth"><br>
         진료과: <input type="text" name="department"><br>
