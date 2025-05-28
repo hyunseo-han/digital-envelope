@@ -68,10 +68,13 @@ public class VerifyReservationServlet extends HttpServlet {
         }
 
         try {
+        	
             // 1. 클라이언트로부터 두 개의 Base64 인코딩 데이터 수신
+        	
             String envelopeBase64 = request.getParameter("envelope");
             String encryptedAESKeyBase64 = request.getParameter("encryptedKey");
-
+            System.out.println("🏥 병원이 수신한 AES Key: " + encryptedAESKeyBase64);
+            
             byte[] encryptedEnvelope = Base64.getDecoder().decode(envelopeBase64);
             byte[] encryptedAESKey = Base64.getDecoder().decode(encryptedAESKeyBase64);
 

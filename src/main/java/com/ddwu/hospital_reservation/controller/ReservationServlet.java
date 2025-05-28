@@ -70,11 +70,21 @@ public class ReservationServlet extends HttpServlet {
             String encryptedAESKeyBase64 = Base64.getEncoder().encodeToString(encryptedAESKey);
 
             URL url = new URL("http://localhost:8080/hospital-reservation/verify-reservation");
+            
+         // 1. 쿠키용 인증 정보 Base64 인코딩
+            String rawAuth = "hospital:1234";
+            String encodedAuth = Base64.getEncoder().encodeToString(rawAuth.getBytes());
+
+            // 2. POST 요청 구성 + 쿠키 전송
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
+            // ✅ 3. 병원 인증 쿠키 붙이기
+            conn.setRequestProperty("Cookie", "hospitalAuth=" + encodedAuth);
+
+            // 4. 데이터 구성
             String postData = "envelope=" + java.net.URLEncoder.encode(envelopeBase64, "UTF-8")
                     + "&encryptedKey=" + java.net.URLEncoder.encode(encryptedAESKeyBase64, "UTF-8");
 
@@ -82,10 +92,13 @@ public class ReservationServlet extends HttpServlet {
                 os.write(postData.getBytes());
             }
 
+
             // 응답 스트림 → JSP로 전달
             String resultMessage = new String(conn.getInputStream().readAllBytes(), "UTF-8");
             response.setContentType("text/html;charset=UTF-8");
             response.getWriter().write(resultMessage);
+
+            System.out.println("🔐 예약자가 생성한 Encrypted AES Key: " + encryptedAESKeyBase64);
 
         } catch (Exception e) {
             e.printStackTrace();
