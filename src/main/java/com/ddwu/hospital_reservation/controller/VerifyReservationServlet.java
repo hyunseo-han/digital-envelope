@@ -62,37 +62,35 @@ public class VerifyReservationServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+
         if (!isAuthenticated(request)) {
             response.sendRedirect(request.getContextPath() + "/hospital-login");
             return;
         }
 
         try {
-            // 1. 클라이언트로부터 두 개의 Base64 인코딩 데이터 수신
-            String envelopeBase64 = request.getParameter("envelope");
-            String encryptedAESKeyBase64 = request.getParameter("encryptedKey");
+            // 1. 파일 경로 설정 및 암호화된 데이터 로딩
+            String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
+            byte[] encryptedEnvelope = Files.readAllBytes(Paths.get(folderPath, "encrypted-envelope.bin"));
+            byte[] encryptedAESKey = Files.readAllBytes(Paths.get(folderPath, "encrypted-key.bin"));
 
-            byte[] encryptedEnvelope = Base64.getDecoder().decode(envelopeBase64);
-            byte[] encryptedAESKey = Base64.getDecoder().decode(encryptedAESKeyBase64);
-
-            // 2. 병원 개인키 로딩 (병원만이 이 키로 AES 키 복호화 가능)
+            // 2. 병원 개인키 로딩
             String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
             PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
 
-            // 3. AES 키 복호화 (RSA로 복호화)
+            // 3. AES 키 복호화 (RSA)
             Cipher rsaCipher = Cipher.getInstance("RSA");
             rsaCipher.init(Cipher.DECRYPT_MODE, hospitalPrivateKey);
             byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
-
             SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
 
-            // 4. 전자봉투 복호화
+            // 4. 전자봉투 복호화 (AES)
             Cipher aesCipher = Cipher.getInstance("AES");
             aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
             byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
 
-            // 5. 예약 정보와 서명 분리
-            int signatureLength = 256;
+            // 5. 데이터와 서명 분리
+            int signatureLength = 256; // RSA 2048 기준
             byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0, decryptedContent.length - signatureLength);
             byte[] signature = Arrays.copyOfRange(decryptedContent, decryptedContent.length - signatureLength, decryptedContent.length);
 
@@ -102,6 +100,7 @@ public class VerifyReservationServlet extends HttpServlet {
 
             boolean isValid = SignatureManager.verifySignature(dataBytes, signature, publicKey);
 
+            // 7. 결과 출력
             request.setAttribute("result", isValid ? "✅ 전자서명 검증 성공: 예약자 본인 맞음" : "❌ 전자서명 검증 실패: 위조 가능성 있음");
             request.setAttribute("originalData", new String(dataBytes, "UTF-8"));
 
@@ -113,5 +112,6 @@ public class VerifyReservationServlet extends HttpServlet {
             request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
         }
     }
+
 
 }

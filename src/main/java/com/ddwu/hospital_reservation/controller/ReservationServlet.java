@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Base64;
@@ -65,27 +67,17 @@ public class ReservationServlet extends HttpServlet {
             rsaCipher.init(Cipher.ENCRYPT_MODE, hospitalPublicKey);
             byte[] encryptedAESKey = rsaCipher.doFinal(aesKey.getEncoded());
 
-            // 6. 병원 검증 URL로 자동 POST 요청
-            String envelopeBase64 = Base64.getEncoder().encodeToString(encryptedEnvelope);
-            String encryptedAESKeyBase64 = Base64.getEncoder().encodeToString(encryptedAESKey);
+            // 6. 병원 서버로 자동 전송하지 않고 서버에 파일로 저장
+            String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
+            Files.createDirectories(Paths.get(folderPath)); // 폴더 없으면 생성
 
-            URL url = new URL("http://localhost:8080/hospital-reservation/verify-reservation");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setDoOutput(true);
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            // 각각 Base64 없이 그대로 저장
+            Files.write(Paths.get(folderPath, "encrypted-envelope.bin"), encryptedEnvelope);
+            Files.write(Paths.get(folderPath, "encrypted-key.bin"), encryptedAESKey);
 
-            String postData = "envelope=" + java.net.URLEncoder.encode(envelopeBase64, "UTF-8")
-                    + "&encryptedKey=" + java.net.URLEncoder.encode(encryptedAESKeyBase64, "UTF-8");
-
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(postData.getBytes());
-            }
-
-            // 응답 스트림 → JSP로 전달
-            String resultMessage = new String(conn.getInputStream().readAllBytes(), "UTF-8");
-            response.setContentType("text/html;charset=UTF-8");
-            response.getWriter().write(resultMessage);
+            // 결과 페이지로 안내
+            request.setAttribute("message", "✅ 예약 요청이 암호화되어 병원에 저장되었습니다. 병원 로그인 후 복호화를 진행하세요.");
+            request.getRequestDispatcher("/WEB-INF/views/result.jsp").forward(request, response);
 
         } catch (Exception e) {
             e.printStackTrace();
