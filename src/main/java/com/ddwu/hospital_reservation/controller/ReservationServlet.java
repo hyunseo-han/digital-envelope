@@ -16,6 +16,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.util.Base64;
 @WebServlet("/reserve")
 public class ReservationServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -52,15 +54,26 @@ public class ReservationServlet extends HttpServlet {
             keyGen.init(128);
             SecretKey aesKey = keyGen.generateKey();
 
-            // 5. AES로 봉투 암호화
+         // 5. AES로 봉투 암호화
             Cipher aesCipher = Cipher.getInstance("AES");
             aesCipher.init(Cipher.ENCRYPT_MODE, aesKey);
             byte[] encryptedEnvelope = aesCipher.doFinal(envelopeContent);
 
-            System.out.println("전자봉투 암호화 완료, 봉투 크기: " + encryptedEnvelope.length + " bytes");
+            // ✅ 6. AES 키를 병원 공개키로 암호화
+            String hospitalPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_public.key");
+            PublicKey hospitalPublicKey = KeyManager.loadPublicKey(hospitalPubKeyPath);
 
-            // 성공 메시지 전달
-            request.setAttribute("result", "예약이 정상 처리되었습니다.");
+            Cipher rsaCipher = Cipher.getInstance("RSA");
+            rsaCipher.init(Cipher.ENCRYPT_MODE, hospitalPublicKey);
+            byte[] encryptedAESKey = rsaCipher.doFinal(aesKey.getEncoded());
+
+            System.out.println("AES 키 암호화 완료, 길이: " + encryptedAESKey.length + " bytes");
+
+            // 병원으로 전송할 두 개의 바이너리 출력 (Base64로도 가능)
+            request.setAttribute("result", "예약 처리 완료<br><br>" +
+                    "전자봉투(Base64):<br>" + Base64.getEncoder().encodeToString(encryptedEnvelope) + "<br><br>" +
+                    "암호화된 AES 키(Base64):<br>" + Base64.getEncoder().encodeToString(encryptedAESKey));
+
             request.getRequestDispatcher("/WEB-INF/views/result.jsp").forward(request, response);
 
 
