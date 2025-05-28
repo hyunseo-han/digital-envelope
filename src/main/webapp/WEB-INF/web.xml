@@ -5,7 +5,23 @@
          http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd" 
          version="3.1">
 
-    <!-- 환자 예약 요청을 처리할 서블릿 등록 -->
+    <!-- Spring DispatcherServlet 등록 -->
+    <servlet>
+        <servlet-name>spring</servlet-name>
+        <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+        <init-param>
+            <param-name>contextConfigLocation</param-name>
+            <param-value>/WEB-INF/spring-servlet.xml</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>spring</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+
+    <!-- ReservationServlet (기존 내용 유지) -->
     <servlet>
         <servlet-name>ReservationServlet</servlet-name>
         <servlet-class>com.ddwu.hospital_reservation.controller.ReservationServlet</servlet-class>
@@ -16,9 +32,8 @@
         <url-pattern>/reserve</url-pattern>
     </servlet-mapping>
 
-    <!-- welcome 페이지 설정 (index.jsp를 첫 화면으로) -->
+    <!-- index.jsp를 첫 페이지로 -->
     <welcome-file-list>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>
-
 </web-app>
