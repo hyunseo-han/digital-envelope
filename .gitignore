@@ -1,1 +1,26 @@
-target/
+# Java/Maven build
+/target/
+*.class
+*.log
+
+# Eclipse 프로젝트 설정
+.classpath
+.project
+.settings/
+.metadata/
+
+# Key/secret files
+*.key
+*.pem
+
+# OS 별 무시
+.DS_Store
+Thumbs.db
+
+# WAR/JAR 파일
+*.war
+*.jar
+
+# 기타 임시 파일
+*.iml
+.idea/
