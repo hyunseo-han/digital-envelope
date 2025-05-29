@@ -75,10 +75,11 @@
 </head>
 <body>
     <div class="verify-container">
-        <h2>병원: 예약 검증 시스템</h2>
-		<form action="${pageContext.request.contextPath}/verify-reservation" method="post">
+        <h2>진료 예약 목록</h2>
+		<form action="${pageContext.request.contextPath}/verify-reservation" method="get">
 		    <input type="submit" value="검증 실행">
 		</form>
+
 	
         <c:if test="${not empty result}">
 		    <div class="result-message">
@@ -87,12 +88,19 @@
 		    </div>
 		</c:if>
 
-		<c:if test="${not empty originalData}">
-		    <div class="form-card">
-		        <h3>예약자 정보</h3>
-		        <pre>${originalData}</pre>
-		    </div>
+		<c:if test="${not empty reservationMap}">
+		    <div class="container" style="margin-top: 30px;">
+		        <ul>
+		             <c:forEach var="entry" items="${reservationMap}">
+		                <li>
+		                    <strong>${entry.key}</strong><br/>
+		                    <pre style="background:#f0f0f0; padding:8px; border-radius:6px;">${entry.value}</pre>
+		                </li>
+		            </c:forEach>
+		        </ul>
+		   	</div>
 		</c:if>
+
 
     </div>
 </body>
