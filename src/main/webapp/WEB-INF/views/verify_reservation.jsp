@@ -75,30 +75,17 @@
 </head>
 <body>
     <div class="verify-container">
-        <h2>진료 예약 목록</h2>
+        <h2>최신 진료 예약</h2>
 		<form action="${pageContext.request.contextPath}/verify-reservation" method="get">
 		    <input type="submit" value="검증 실행">
 		</form>
 
-	
-        <c:if test="${not empty result}">
-		    <div class="result-message">
-		        <strong>검증 결과:</strong><br>
-		        ${result}
-		    </div>
-		</c:if>
 
-		<c:if test="${not empty reservationMap}">
-		    <div class="container" style="margin-top: 30px;">
-		        <ul>
-		             <c:forEach var="entry" items="${reservationMap}">
-		                <li>
-		                    <strong>${entry.key}</strong><br/>
-		                    <pre style="background:#f0f0f0; padding:8px; border-radius:6px;">${entry.value}</pre>
-		                </li>
-		            </c:forEach>
-		        </ul>
-		   	</div>
+		<c:if test="${not empty result}">
+		    <div class="result-message">
+		        <strong>복호화 결과:</strong><br/>
+		        <pre>${result}</pre>
+		    </div>
 		</c:if>
 
 

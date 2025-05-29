@@ -41,7 +41,7 @@ h2 {
 <body>
 
 	<div class="container">
-		<h2>예약 처리 결과</h2>
+		<h2>예약 성공<h2>
 		<p>${result}</p>
 		<a href="${pageContext.request.contextPath}" class="btn-home">홈으로
 			돌아가기</a>
