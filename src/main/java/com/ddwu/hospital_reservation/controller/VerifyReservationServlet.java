@@ -3,6 +3,7 @@ package com.ddwu.hospital_reservation.controller;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.Base64;
@@ -61,42 +62,57 @@ public class VerifyReservationServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+
         if (!isAuthenticated(request)) {
             response.sendRedirect(request.getContextPath() + "/hospital-login");
             return;
         }
 
         try {
-            String envelopeBase64 = request.getParameter("envelope");
-            byte[] encryptedEnvelope = Base64.getDecoder().decode(envelopeBase64);
+            // 1. 파일 경로 설정 및 암호화된 데이터 로딩
+            String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
+            byte[] encryptedEnvelope = Files.readAllBytes(Paths.get(folderPath, "encrypted-envelope.bin"));
+            byte[] encryptedAESKey = Files.readAllBytes(Paths.get(folderPath, "encrypted-key.bin"));
 
-            // AES 키 불러오기 (예제에서는 임시 키 생성. 실제론 고정 키 또는 키 전송 방식 사용해야 함)
-//            SecretKey aesKey = KeyGenerator.getInstance("/WEB-INF/classes/keys/hospital_pivate.key").generateKey();
+            // 2. 병원 개인키 로딩
+            String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
+            PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
 
-            String aesKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_private.key");
-            byte[] keyBytes = Files.readAllBytes(Paths.get(aesKeyPath)); // AES 키는 16, 24, 또는 32 바이트여야 함
-            SecretKey aesKey = new SecretKeySpec(keyBytes, "AES");
-            
-            
+            // 3. AES 키 복호화 (RSA)
+            Cipher rsaCipher = Cipher.getInstance("RSA");
+            rsaCipher.init(Cipher.DECRYPT_MODE, hospitalPrivateKey);
+            byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
+            SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
+
+            // 4. 전자봉투 복호화 (AES)
             Cipher aesCipher = Cipher.getInstance("AES");
             aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
             byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
 
-            int signatureLength = 256; // RSA 2048bit 기준
+            // 5. 데이터와 서명 분리
+            int signatureLength = 256; // RSA 2048 기준
             byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0, decryptedContent.length - signatureLength);
             byte[] signature = Arrays.copyOfRange(decryptedContent, decryptedContent.length - signatureLength, decryptedContent.length);
 
+            // 6. user 공개키로 서명 검증
             String pubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
             PublicKey publicKey = KeyManager.loadPublicKey(pubKeyPath);
 
             boolean isValid = SignatureManager.verifySignature(dataBytes, signature, publicKey);
 
-            request.setAttribute("result", isValid ? "전자서명 검증 성공: 예약자 본인 맞음" : "전자서명 검증 실패: 위조 가능성 있음");
+            // 7. 결과 출력
+            request.setAttribute("result", isValid ? "✅ 전자서명 검증 성공: 예약자 본인 맞음" : "❌ 전자서명 검증 실패: 위조 가능성 있음");
+            request.setAttribute("originalData", new String(dataBytes, "UTF-8"));
+
             request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
 
         } catch (Exception e) {
-            request.setAttribute("result", "오류 발생: " + e.getMessage());
+            e.printStackTrace();
+            request.setAttribute("result", "❌ 오류 발생: " + e.getMessage());
             request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
         }
     }
+
+
 }
+

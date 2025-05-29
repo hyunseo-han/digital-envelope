@@ -42,7 +42,7 @@ h2 {
 <body>
 
 	<div class="container">
-		<h2>🚨 오류가 발생했습니다</h2>
+		<h2>오류가 발생했습니다</h2>
 		<p>${error}</p>
 		<a href="${pageContext.request.contextPath}" class="btn-home">홈으로
 			돌아가기</a>
