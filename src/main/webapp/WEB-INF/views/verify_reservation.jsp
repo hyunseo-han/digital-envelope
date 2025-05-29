@@ -75,7 +75,7 @@
 </head>
 <body>
     <div class="verify-container">
-        <h2>최신 진료 예약</h2>
+        <h2>최신 진료 예약 내역</h2>
 		<form action="${pageContext.request.contextPath}/verify-reservation" method="get">
 		    <input type="submit" value="검증 실행">
 		</form>

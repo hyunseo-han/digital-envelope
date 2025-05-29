@@ -69,6 +69,7 @@ public class VerifyReservationServlet extends HttpServlet {
                     byte[] encryptedEnvelope = Files.readAllBytes(envelopeFile.toPath());
                     byte[] encryptedAESKey = Files.readAllBytes(keyFile.toPath());
 
+                    // 1. 병원 개인키로 AES 키 복호화
                     String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
                     PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
 
@@ -77,15 +78,27 @@ public class VerifyReservationServlet extends HttpServlet {
                     byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
                     SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
 
+                    // 2. AES로 봉투 복호화
                     Cipher aesCipher = Cipher.getInstance("AES");
                     aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
                     byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
 
-                    int signatureLength = 256;
+                    // 3. 데이터와 서명 분리
+                    int signatureLength = 256; // RSA 2048bit 기준
                     byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0, decryptedContent.length - signatureLength);
+                    byte[] signatureBytes = Arrays.copyOfRange(decryptedContent, decryptedContent.length - signatureLength, decryptedContent.length);
                     String originalData = new String(dataBytes, "UTF-8");
 
-                    request.setAttribute("result", originalData);
+                    // 4. 사용자 공개키로 서명 검증
+                    String userPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
+                    PublicKey userPublicKey = KeyManager.loadPublicKey(userPubKeyPath);
+                    boolean isValid = SignatureManager.verifySignature(dataBytes, signatureBytes, userPublicKey);
+
+                    if (!isValid) {
+                        request.setAttribute("result", "❌ 서명 검증 실패: 위조된 데이터일 수 있습니다.");
+                    } else {
+                        request.setAttribute("result", originalData);
+                    }
 
                 } catch (Exception ex) {
                     request.setAttribute("result", "❌ 복호화 실패: " + ex.getMessage());
