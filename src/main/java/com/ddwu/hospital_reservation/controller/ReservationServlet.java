@@ -35,8 +35,9 @@ public class ReservationServlet extends HttpServlet {
             String department = request.getParameter("department");
             String symptom = request.getParameter("symptom");
             String date = request.getParameter("date");
-
-            String reservationData = name + "," + birth + "," + department + "," + symptom + "," + date;
+            String ssn = request.getParameter("ssn");
+            
+            String reservationData = name + "," + birth + "," + ssn + "," + department + "," + symptom + "," + date;
             byte[] dataBytes = reservationData.getBytes("UTF-8");
 
             // 2. 전자서명

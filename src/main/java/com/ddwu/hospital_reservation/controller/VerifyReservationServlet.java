@@ -26,92 +26,103 @@ import jakarta.servlet.http.HttpServletResponse;
 @WebServlet("/verify-reservation")
 public class VerifyReservationServlet extends HttpServlet {
 
-    private boolean isAuthenticated(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) return false;
+	private boolean isAuthenticated(HttpServletRequest request) {
+		Cookie[] cookies = request.getCookies();
+		if (cookies == null)
+			return false;
 
-        for (Cookie c : cookies) {
-            if ("hospitalAuth".equals(c.getName())) {
-                try {
-                    String decoded = new String(Base64.getDecoder().decode(c.getValue()));
-                    String[] parts = decoded.split(":");
-                    if (parts.length == 2 && "hospital".equals(parts[0]) && "1234".equals(parts[1])) {
-                        return true;
-                    }
-                } catch (Exception e) {
-                    // 무효한 쿠키 값인 경우
-                    return false;
-                }
-            }
-        }
-        return false;
-    }
+		for (Cookie c : cookies) {
+			if ("hospitalAuth".equals(c.getName())) {
+				try {
+					String decoded = new String(Base64.getDecoder().decode(c.getValue()));
+					String[] parts = decoded.split(":");
+					if (parts.length == 2 && "hospital".equals(parts[0]) && "1234".equals(parts[1])) {
+						return true;
+					}
+				} catch (Exception e) {
+					// 무효한 쿠키 값인 경우
+					return false;
+				}
+			}
+		}
+		return false;
+	}
 
-    @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+	@Override
+	protected void doGet(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
 
-        if (!isAuthenticated(request)) {
-            response.sendRedirect(request.getContextPath() + "/hospital-login");
-            return;
-        }
+		if (!isAuthenticated(request)) {
+			response.sendRedirect(request.getContextPath() + "/hospital-login");
+			return;
+		}
 
-        request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
-    }
+		request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
+	}
 
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+	@Override
+	protected void doPost(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
 
-        if (!isAuthenticated(request)) {
-            response.sendRedirect(request.getContextPath() + "/hospital-login");
-            return;
-        }
+		if (!isAuthenticated(request)) {
+			response.sendRedirect(request.getContextPath() + "/hospital-login");
+			return;
+		}
 
-        try {
-            // 1. 파일 경로 설정 및 암호화된 데이터 로딩
-            String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
-            byte[] encryptedEnvelope = Files.readAllBytes(Paths.get(folderPath, "encrypted-envelope.bin"));
-            byte[] encryptedAESKey = Files.readAllBytes(Paths.get(folderPath, "encrypted-key.bin"));
+		try {
+			// 1. 파일 경로 설정 및 암호화된 데이터 로딩
+			String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
+			byte[] encryptedEnvelope = Files.readAllBytes(Paths.get(folderPath, "encrypted-envelope.bin"));
+			byte[] encryptedAESKey = Files.readAllBytes(Paths.get(folderPath, "encrypted-key.bin"));
 
-            // 2. 병원 개인키 로딩
-            String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
-            PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
+			// 2. 병원 개인키 로딩
+			String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
+			PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
 
-            // 3. AES 키 복호화 (RSA)
-            Cipher rsaCipher = Cipher.getInstance("RSA");
-            rsaCipher.init(Cipher.DECRYPT_MODE, hospitalPrivateKey);
-            byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
-            SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
+			// 3. AES 키 복호화 (RSA)
+			Cipher rsaCipher = Cipher.getInstance("RSA");
+			rsaCipher.init(Cipher.DECRYPT_MODE, hospitalPrivateKey);
+			byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
+			SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
 
-            // 4. 전자봉투 복호화 (AES)
-            Cipher aesCipher = Cipher.getInstance("AES");
-            aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
-            byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
+			// 4. 전자봉투 복호화 (AES)
+			Cipher aesCipher = Cipher.getInstance("AES");
+			aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
+			byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
 
-            // 5. 데이터와 서명 분리
-            int signatureLength = 256; // RSA 2048 기준
-            byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0, decryptedContent.length - signatureLength);
-            byte[] signature = Arrays.copyOfRange(decryptedContent, decryptedContent.length - signatureLength, decryptedContent.length);
+			// 5. 데이터와 서명 분리
+			int signatureLength = 256; // RSA 2048 기준
+			byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0, decryptedContent.length - signatureLength);
+			byte[] signature = Arrays.copyOfRange(decryptedContent, decryptedContent.length - signatureLength,
+					decryptedContent.length);
 
-            // 6. user 공개키로 서명 검증
-            String pubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
-            PublicKey publicKey = KeyManager.loadPublicKey(pubKeyPath);
+			// 6. user 공개키로 서명 검증
+			String pubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
+			PublicKey publicKey = KeyManager.loadPublicKey(pubKeyPath);
 
-            boolean isValid = SignatureManager.verifySignature(dataBytes, signature, publicKey);
+			boolean isValid = SignatureManager.verifySignature(dataBytes, signature, publicKey);
 
-            // 7. 결과 출력
-            request.setAttribute("result", isValid ? "✅ 전자서명 검증 성공: 예약자 본인 맞음" : "❌ 전자서명 검증 실패: 위조 가능성 있음");
-            request.setAttribute("originalData", new String(dataBytes, "UTF-8"));
+			// 7. 결과 출력
+			request.setAttribute("result", isValid ? "✅ 전자서명 검증 성공: 예약자 본인 맞음" : "❌ 전자서명 검증 실패: 위조 가능성 있음");
+			request.setAttribute("originalData", new String(dataBytes, "UTF-8"));
+			
+			// 따로 출력하기 위함 
+			String[] fields = new String(dataBytes, "UTF-8").split(",");
+			request.setAttribute("name", fields[0]);
+			request.setAttribute("birth", fields[1]);
+			request.setAttribute("ssn", fields[2]);
+			request.setAttribute("department", fields[3]);
+			request.setAttribute("symptom", fields[4]);
+			request.setAttribute("date", fields[5]);
 
-            request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            request.setAttribute("result", "❌ 오류 발생: " + e.getMessage());
-            request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
-        }
-    }
+			request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
 
+		} catch (Exception e) {
+			e.printStackTrace();
+			request.setAttribute("result", "❌ 오류 발생: " + e.getMessage());
+			request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
+		}
+	}
 
 }
