@@ -41,7 +41,6 @@ public class VerifyReservationServlet extends HttpServlet {
                         return true;
                     }
                 } catch (Exception e) {
-                    // 무효한 쿠키 값인 경우
                     return false;
                 }
             }
@@ -60,62 +59,49 @@ public class VerifyReservationServlet extends HttpServlet {
 
         try {
             String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
-            File folder = new File(folderPath);
+            File envelopeFile = new File(folderPath, "reservation_envelope.bin");
+            File keyFile = new File(folderPath, "reservation_key.bin");
 
-            File[] envelopeFiles = folder.listFiles((dir, name) -> name.endsWith("_envelope.bin"));
-
-            Map<String, String> reservationMap = new HashMap<>();
-
-            for (File envelopeFile : envelopeFiles) {
+            if (!envelopeFile.exists() || !keyFile.exists()) {
+                request.setAttribute("result", "❌ 예약 파일이 없습니다.");
+            } else {
                 try {
-                    String baseName = envelopeFile.getName().replace("_envelope.bin", "");
-                    File keyFile = new File(folder, baseName + "_key.bin");
-
                     byte[] encryptedEnvelope = Files.readAllBytes(envelopeFile.toPath());
                     byte[] encryptedAESKey = Files.readAllBytes(keyFile.toPath());
 
-                    // 병원 개인키 복호화
                     String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
                     PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
+
                     Cipher rsaCipher = Cipher.getInstance("RSA");
                     rsaCipher.init(Cipher.DECRYPT_MODE, hospitalPrivateKey);
                     byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
                     SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
 
-                    // AES 복호화
                     Cipher aesCipher = Cipher.getInstance("AES");
                     aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
                     byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
 
-                    // 서명 분리
                     int signatureLength = 256;
                     byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0, decryptedContent.length - signatureLength);
-
-                    // 검증은 생략 가능, 데이터만 뽑기
                     String originalData = new String(dataBytes, "UTF-8");
-                    reservationMap.put(baseName, originalData);
+
+                    request.setAttribute("result", originalData);
 
                 } catch (Exception ex) {
-                    reservationMap.put(envelopeFile.getName(), "❌ 복호화 실패");
+                    request.setAttribute("result", "❌ 복호화 실패: " + ex.getMessage());
                 }
             }
 
-            request.setAttribute("reservationMap", reservationMap);
-
         } catch (Exception e) {
-            e.printStackTrace();
             request.setAttribute("result", "❌ 오류 발생: " + e.getMessage());
         }
 
         request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
     }
-    
+
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         doGet(request, response);
     }
-
-
 }
-

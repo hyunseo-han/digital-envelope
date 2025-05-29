@@ -25,30 +25,27 @@ public class ReservationServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
-            // 1. 예약 정보 입력 수집
             String name = request.getParameter("name");
             String birth = request.getParameter("birth");
-            String ssn = request.getParameter("ssn"); // 새로 추가된 필드
+            String ssn = request.getParameter("ssn");
             String department = request.getParameter("department");
             String symptom = request.getParameter("symptom");
             String date = request.getParameter("date");
 
-            // 2. 문자열 결합에 주민등록번호 포함
             String reservationData = name + "," + birth + "," + ssn + "," + department + "," + symptom + "," + date;
             byte[] dataBytes = reservationData.getBytes("UTF-8");
 
-            // 3. 전자서명 생성
+            // 전자서명
             String userPrivateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_private.key");
             PrivateKey userPrivateKey = KeyManager.loadPrivateKey(userPrivateKeyPath);
             byte[] digitalSignature = SignatureManager.signData(dataBytes, userPrivateKey);
 
-            // 4. 데이터 + 서명 결합
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(dataBytes);
             baos.write(digitalSignature);
             byte[] envelopeContent = baos.toByteArray();
 
-            // 5. AES 암호화
+            // AES 암호화
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
             keyGen.init(128);
             SecretKey aesKey = keyGen.generateKey();
@@ -57,24 +54,19 @@ public class ReservationServlet extends HttpServlet {
             aesCipher.init(Cipher.ENCRYPT_MODE, aesKey);
             byte[] encryptedEnvelope = aesCipher.doFinal(envelopeContent);
 
-            // 6. AES 키를 병원 공개키로 암호화
+            // AES 키 암호화
             String hospitalPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_public.key");
             PublicKey hospitalPublicKey = KeyManager.loadPublicKey(hospitalPubKeyPath);
-
             Cipher rsaCipher = Cipher.getInstance("RSA");
             rsaCipher.init(Cipher.ENCRYPT_MODE, hospitalPublicKey);
             byte[] encryptedAESKey = rsaCipher.doFinal(aesKey.getEncoded());
-
-         // 7. 고유한 파일명 생성 (예: 박주희_1716977760000_envelope.bin)
             String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
-            String cleanDate = date.replaceAll("-", "");
-            String filename = name + "_" + department + "_" + cleanDate + "_" + System.currentTimeMillis();
-            Files.createDirectories(Paths.get(folderPath));
-            Files.write(Paths.get(folderPath, filename + "_envelope.bin"), encryptedEnvelope);
-            Files.write(Paths.get(folderPath, filename + "_key.bin"), encryptedAESKey);
 
-            // 8. 결과 페이지로 이동
-            request.setAttribute("message", "✅ 예약 요청이 암호화되어 병원에 저장되었습니다. 병원 로그인 후 복호화를 진행하세요.");
+            // 단일 파일 저장
+            Files.write(Paths.get(folderPath, "reservation_envelope.bin"), encryptedEnvelope);
+            Files.write(Paths.get(folderPath, "reservation_key.bin"), encryptedAESKey);
+
+            request.setAttribute("message", "✅ 예약 요청이 저장되었습니다.");
             request.getRequestDispatcher("/WEB-INF/views/result.jsp").forward(request, response);
 
         } catch (Exception e) {
