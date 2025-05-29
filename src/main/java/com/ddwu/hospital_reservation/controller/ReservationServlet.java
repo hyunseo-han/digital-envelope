@@ -65,11 +65,13 @@ public class ReservationServlet extends HttpServlet {
             rsaCipher.init(Cipher.ENCRYPT_MODE, hospitalPublicKey);
             byte[] encryptedAESKey = rsaCipher.doFinal(aesKey.getEncoded());
 
-            // 7. 서버에 파일로 저장
+         // 7. 고유한 파일명 생성 (예: 박주희_1716977760000_envelope.bin)
             String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
+            String cleanDate = date.replaceAll("-", "");
+            String filename = name + "_" + department + "_" + cleanDate + "_" + System.currentTimeMillis();
             Files.createDirectories(Paths.get(folderPath));
-            Files.write(Paths.get(folderPath, "encrypted-envelope.bin"), encryptedEnvelope);
-            Files.write(Paths.get(folderPath, "encrypted-key.bin"), encryptedAESKey);
+            Files.write(Paths.get(folderPath, filename + "_envelope.bin"), encryptedEnvelope);
+            Files.write(Paths.get(folderPath, filename + "_key.bin"), encryptedAESKey);
 
             // 8. 결과 페이지로 이동
             request.setAttribute("message", "✅ 예약 요청이 암호화되어 병원에 저장되었습니다. 병원 로그인 후 복호화를 진행하세요.");
