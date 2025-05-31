@@ -1,7 +1,11 @@
 package com.ddwu.hospital_reservation.controller;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -9,57 +13,90 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 @WebServlet("/hospital-login")
 public class HospitalLoginServlet extends HttpServlet {
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
 
-        // 쿠키가 존재하면 자동 로그인 처리
-        boolean authenticated = false;
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie c : cookies) {
-                if ("hospitalAuth".equals(c.getName())) {
-                    try {
-                        String decoded = new String(Base64.getDecoder().decode(c.getValue()));
-                        String[] parts = decoded.split(":");
-                        if (parts.length == 2 && "hospital".equals(parts[0]) && "1234".equals(parts[1])) {
-                            authenticated = true;
-                            break;
-                        }
-                    } catch (Exception e) {
-                        // 무시
-                    }
-                }
-            }
-        }
+	private final Map<String, String> rememberMeMap = new HashMap<>();
 
-        if (authenticated) {
-            response.sendRedirect(request.getContextPath() + "/verify-reservation");
-        } else {
-            request.getRequestDispatcher("/WEB-INF/views/hospital_login.jsp").forward(request, response);
-        }
-    }
+	@Override
+	protected void doGet(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
 
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        String username = request.getParameter("username");
-        String password = request.getParameter("password");
+		boolean authenticated = false;
+		String username = null;
 
-        if ("hospital".equals(username) && "1234".equals(password)) {
-            String rawValue = username + ":" + password;
-            String encodedValue = Base64.getEncoder().encodeToString(rawValue.getBytes());
+		Cookie[] cookies = request.getCookies();
+		if (cookies != null) {
+			for (Cookie c : cookies) {
+				if ("rememberme".equals(c.getName())) {
+					try {
+						String[] parts = c.getValue().split(";");
+						if (parts.length == 2) {
+							String id = parts[0];
+							String token = parts[1];
+							if (token.equals(rememberMeMap.get(id))) {
+								authenticated = true;
+								username = id;
+								break;
+							}
+						}
+					} catch (Exception e) {
+						// 무시
+					}
+				}
+			}
+		}
 
-            Cookie authCookie = new Cookie("hospitalAuth", encodedValue);
-            authCookie.setMaxAge(60 * 60); // 1시간 유지
-            authCookie.setPath("/");
+		if (authenticated) {
+			HttpSession session = request.getSession(true);
+			session.setAttribute("user", username);
+			session.setMaxInactiveInterval(60 * 15); // 15분
 
-            response.addCookie(authCookie);
-            response.sendRedirect(request.getContextPath() + "/verify-reservation");
-        } else {
-            request.setAttribute("error", "로그인 실패: 올바르지 않은 정보입니다.");
-            request.getRequestDispatcher("/WEB-INF/views/hospital_login.jsp").forward(request, response);
-        }
-    }
+			response.sendRedirect(request.getContextPath() + "/verify-reservation");
+		} else {
+			request.getRequestDispatcher("/WEB-INF/views/hospital_login.jsp").forward(request, response);
+		}
+	}
+
+	@Override
+	protected void doPost(HttpServletRequest request, HttpServletResponse response)
+			throws ServletException, IOException {
+
+		String username = request.getParameter("username");
+		String password = request.getParameter("password");
+
+		boolean rememberMe = request.getParameter("rememberme") != null;
+
+		if ("hospital".equals(username) && "1234".equals(password)) {
+
+			// 세션 고정 방지: 기존 세션 무효화 후 새로 생성
+			HttpSession session = request.getSession();
+			session.invalidate(); // 세션을 강제로 무효화하고 새로 생성하여 Session Fixation 공격 방지
+			session = request.getSession(true);
+			session.setAttribute("user", username); // 인증 후 HttpSession에 사용자 정보를 저장
+			session.setMaxInactiveInterval(60 * 15); // 15분
+
+			// 로그인 성공 시 rememberMe 쿠키 설정
+			if (rememberMe) {
+			    String randomToken = UUID.randomUUID().toString();
+			    rememberMeMap.put(username, randomToken); // 서버가 랜덤 문자열을 생성하여 사용자와 매핑
+
+			    // 쿠키에는 username:random만 저장 (Base64 인코딩으로 콜론 제거)
+			    String raw = username + ":" + randomToken; 
+			    String encoded = Base64.getUrlEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+
+			    Cookie loginCookie = new Cookie("rememberme", encoded);
+			    loginCookie.setMaxAge(60 * 60); // 1시간
+			    loginCookie.setPath("/");
+			    response.addCookie(loginCookie);
+			}
+
+			response.sendRedirect(request.getContextPath() + "/verify-reservation");
+		} else {
+			request.setAttribute("error", "로그인 실패: 올바르지 않은 정보입니다.");
+			request.getRequestDispatcher("/WEB-INF/views/hospital_login.jsp").forward(request, response);
+		}
+	}
 }
