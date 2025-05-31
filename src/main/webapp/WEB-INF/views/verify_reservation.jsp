@@ -57,6 +57,7 @@
             font-weight: bold;
             border-radius: 6px;
             cursor: pointer;
+            margin: 5px;
         }
 
         input[type="submit"]:hover {
@@ -71,24 +72,33 @@
             padding: 15px;
             border-radius: 8px;
         }
+
+        .button-group {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="verify-container">
         <h2>최신 진료 예약 내역</h2>
-		<form action="${pageContext.request.contextPath}/verify-reservation" method="get">
-		    <input type="submit" value="검증 실행">
-		</form>
 
+        <!-- 검증 실행 버튼 -->
+        <form action="${pageContext.request.contextPath}/verify-reservation" method="get">
+            <input type="submit" value="검증 실행">
+        </form>
 
-		<c:if test="${not empty result}">
-		    <div class="result-message">
-		        <strong>복호화 결과:</strong><br/>
-		        <pre>${result}</pre>
-		    </div>
-		</c:if>
+        <!-- 로그아웃 버튼 -->
+        <form action="${pageContext.request.contextPath}/" method="get">
+            <input type="submit" value="로그아웃" style="background-color: #ccc; color: #333;">
+        </form>
 
-
+        <!-- 복호화 결과 -->
+        <c:if test="${not empty result}">
+            <div class="result-message">
+                <strong>복호화 결과:</strong><br/>
+                <pre>${result}</pre>
+            </div>
+        </c:if>
     </div>
 </body>
 </html>
