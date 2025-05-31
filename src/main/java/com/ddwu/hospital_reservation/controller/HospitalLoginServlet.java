@@ -28,11 +28,15 @@ public class HospitalLoginServlet extends HttpServlet {
 		String username = null;
 
 		Cookie[] cookies = request.getCookies();
-		if (cookies != null) {
+		Map<String, String> rememberMeMap = (Map<String, String>) getServletContext().getAttribute("rememberMeMap");
+
+		if (cookies != null && rememberMeMap != null) {
 			for (Cookie c : cookies) {
 				if ("rememberme".equals(c.getName())) {
 					try {
-						String[] parts = c.getValue().split(";");
+						String decoded = new String(Base64.getUrlDecoder().decode(c.getValue()),
+								StandardCharsets.UTF_8);
+						String[] parts = decoded.split(":");
 						if (parts.length == 2) {
 							String id = parts[0];
 							String token = parts[1];
@@ -78,19 +82,24 @@ public class HospitalLoginServlet extends HttpServlet {
 			session.setAttribute("user", username); // 인증 후 HttpSession에 사용자 정보를 저장
 			session.setMaxInactiveInterval(60 * 15); // 15분
 
-			// 로그인 성공 시 rememberMe 쿠키 설정
 			if (rememberMe) {
-			    String randomToken = UUID.randomUUID().toString();
-			    rememberMeMap.put(username, randomToken); // 서버가 랜덤 문자열을 생성하여 사용자와 매핑
+				String randomToken = UUID.randomUUID().toString();
 
-			    // 쿠키에는 username:random만 저장 (Base64 인코딩으로 콜론 제거)
-			    String raw = username + ":" + randomToken; 
-			    String encoded = Base64.getUrlEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+				// 전역 저장소에 저장
+				Map<String, String> rememberMeMap = (Map<String, String>) getServletContext()
+						.getAttribute("rememberMeMap");
+				if (rememberMeMap == null) {
+					rememberMeMap = new HashMap<>();
+					getServletContext().setAttribute("rememberMeMap", rememberMeMap);
+				}
+				rememberMeMap.put(username, randomToken);
 
-			    Cookie loginCookie = new Cookie("rememberme", encoded);
-			    loginCookie.setMaxAge(60 * 60); // 1시간
-			    loginCookie.setPath("/");
-			    response.addCookie(loginCookie);
+				String raw = username + ":" + randomToken;
+				String encoded = Base64.getUrlEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+				Cookie loginCookie = new Cookie("rememberme", encoded);
+				loginCookie.setMaxAge(60 * 60); // 1시간
+				loginCookie.setPath("/");
+				response.addCookie(loginCookie);
 			}
 
 			response.sendRedirect(request.getContextPath() + "/verify-reservation");
