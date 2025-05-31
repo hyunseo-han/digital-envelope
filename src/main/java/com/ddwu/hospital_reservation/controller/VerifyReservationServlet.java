@@ -24,21 +24,25 @@ import jakarta.servlet.http.HttpSession;
 @WebServlet("/verify-reservation")
 public class VerifyReservationServlet extends HttpServlet {
 
-	// ✅ 세션 기반 인증
 	private boolean isAuthenticated(HttpServletRequest request) {
 		HttpSession session = request.getSession(false);
-		if (session == null)
+		if (session == null) {
+			System.out.println("[DEBUG] 세션 없음");
 			return false;
-
+		}
 		Object user = session.getAttribute("user");
-		return user != null && "hospital".equals(user.toString());
+		System.out.println("[DEBUG] 세션 사용자 확인: " + user);
+		return user != null && !user.toString().isBlank();
 	}
 
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 
+		System.out.println("[DEBUG] /verify-reservation 접근");
+
 		if (!isAuthenticated(request)) {
+			System.out.println("[DEBUG] 인증 실패 - 리다이렉트");
 			response.sendRedirect(request.getContextPath() + "/hospital-login");
 			return;
 		}
@@ -55,7 +59,6 @@ public class VerifyReservationServlet extends HttpServlet {
 					byte[] encryptedEnvelope = Files.readAllBytes(envelopeFile.toPath());
 					byte[] encryptedAESKey = Files.readAllBytes(keyFile.toPath());
 
-					// 1. 병원 개인키로 AES 키 복호화
 					String privateKeyPath = getServletContext()
 							.getRealPath("/WEB-INF/classes/keys/hospital_private.key");
 					PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
@@ -65,20 +68,17 @@ public class VerifyReservationServlet extends HttpServlet {
 					byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
 					SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
 
-					// 2. AES로 봉투 복호화
 					Cipher aesCipher = Cipher.getInstance("AES");
 					aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
 					byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
 
-					// 3. 데이터와 서명 분리
-					int signatureLength = 256; // RSA 2048bit
+					int signatureLength = 256;
 					byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0,
 							decryptedContent.length - signatureLength);
 					byte[] signatureBytes = Arrays.copyOfRange(decryptedContent,
 							decryptedContent.length - signatureLength, decryptedContent.length);
 					String originalData = new String(dataBytes, "UTF-8");
 
-					// 4. 사용자 공개키로 서명 검증
 					String userPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
 					PublicKey userPublicKey = KeyManager.loadPublicKey(userPubKeyPath);
 					boolean isValid = SignatureManager.verifySignature(dataBytes, signatureBytes, userPublicKey);
