@@ -6,50 +6,37 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.*;
+import java.nio.file.*;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 
 @WebServlet("/generate-keys")
 public class KeyGenServlet extends HttpServlet {
-    private static final long serialVersionUID = 1L;
 
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
         try {
+            //1. 키 저장할 경로
             String resourcePath = getServletContext().getRealPath("/WEB-INF/classes/keys");
             Path dir = Paths.get(resourcePath);
+
             if (!Files.exists(dir)) {
                 Files.createDirectories(dir);
+                System.out.println("[DEBUG] 키 저장 디렉토리 생성됨: " + resourcePath);
             }
 
-            //사용자 키 저장
-            KeyPairGenerator userKeyGen = KeyPairGenerator.getInstance("RSA");
-            userKeyGen.initialize(1024);
-            KeyPair userPair = userKeyGen.generateKeyPair();
-            
-            try (ObjectOutputStream pubOut = new ObjectOutputStream(new FileOutputStream(resourcePath + "/user_public.key"))) {
-                pubOut.writeObject(userPair.getPublic());
-            }
-            try (ObjectOutputStream privOut = new ObjectOutputStream(new FileOutputStream(resourcePath + "/user_private.key"))) {
-                privOut.writeObject(userPair.getPrivate());
-            }
-            
-            //병원 키 저장
-            KeyPairGenerator hospitalKeyGen = KeyPairGenerator.getInstance("RSA");
-            hospitalKeyGen.initialize(1024);
-            KeyPair hospitalPair = hospitalKeyGen.generateKeyPair();
+            //2. 사용자 키쌍 생성
+            KeyPair userPair = generateRSAKeyPair();
+            saveKeyToFile(resourcePath + "/user_public.key", userPair.getPublic());
+            saveKeyToFile(resourcePath + "/user_private.key", userPair.getPrivate());
 
-            try (ObjectOutputStream pubOut = new ObjectOutputStream(new FileOutputStream(resourcePath + "/hospital_public.key"))) {
-                pubOut.writeObject(hospitalPair.getPublic());
-            }
-            try (ObjectOutputStream privOut = new ObjectOutputStream(new FileOutputStream(resourcePath + "/hospital_private.key"))) {
-                privOut.writeObject(hospitalPair.getPrivate());
-            }
+            //3. 병원측 키쌍 생성
+            KeyPair hospitalPair = generateRSAKeyPair();
+            saveKeyToFile(resourcePath + "/hospital_public.key", hospitalPair.getPublic());
+            saveKeyToFile(resourcePath + "/hospital_private.key", hospitalPair.getPrivate());
 
             request.setAttribute("message", "키 생성이 완료되었습니다.");
         } catch (Exception e) {
@@ -58,5 +45,20 @@ public class KeyGenServlet extends HttpServlet {
         }
 
         request.getRequestDispatcher("/WEB-INF/views/home.jsp").forward(request, response);
+    }
+
+    //키쌍 생성 메서드
+    private KeyPair generateRSAKeyPair() throws Exception {
+        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+        keyGen.initialize(1024);
+        return keyGen.generateKeyPair();
+    }
+
+    //.key 파일로 저장하는 메서드
+    private void saveKeyToFile(String path, Object key) throws IOException {
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(path))) {
+            out.writeObject(key);
+            System.out.println("[DEBUG] 키 저장됨: " + path);
+        }
     }
 }
