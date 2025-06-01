@@ -1,18 +1,18 @@
 package com.ddwu.hospital_reservation.controller;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.Signature;
 import java.util.Arrays;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-
-import com.ddwu.hospital_reservation.security.KeyManager;
-import com.ddwu.hospital_reservation.security.SignatureManager;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -56,46 +56,60 @@ public class VerifyReservationServlet extends HttpServlet {
 				request.setAttribute("result", "❌ 예약 파일이 없습니다.");
 			} else {
 				try {
+					//1. 암호화된 데이터와 AES 키 불러오기
 					byte[] encryptedEnvelope = Files.readAllBytes(envelopeFile.toPath());
 					byte[] encryptedAESKey = Files.readAllBytes(keyFile.toPath());
+					
+					//2. 병원 개인키로 AES키 복호화
+					String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
+					PrivateKey hospitalPrivateKey;
+					try (ObjectInputStream keyIn = new ObjectInputStream(new FileInputStream(privateKeyPath))) {
+					    hospitalPrivateKey = (PrivateKey) keyIn.readObject();
+					}
 
-					String privateKeyPath = getServletContext()
-							.getRealPath("/WEB-INF/classes/keys/hospital_private.key");
-					PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
 
 					Cipher rsaCipher = Cipher.getInstance("RSA");
 					rsaCipher.init(Cipher.DECRYPT_MODE, hospitalPrivateKey);
 					byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
 					SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
 
+					//3. AES 키로 봉투 복호화
 					Cipher aesCipher = Cipher.getInstance("AES");
 					aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
 					byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
 
-					int signatureLength = 256;
-					byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0,
-							decryptedContent.length - signatureLength);
-					byte[] signatureBytes = Arrays.copyOfRange(decryptedContent,
-							decryptedContent.length - signatureLength, decryptedContent.length);
-					String originalData = new String(dataBytes, "UTF-8");
+					//4. 데이터와 전자서명 분리
+					int signatureLength = 128;
+					byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0, decryptedContent.length - signatureLength);
+					byte[] signatureBytes = Arrays.copyOfRange(decryptedContent, decryptedContent.length - signatureLength, decryptedContent.length);
+					String originalData = new String(dataBytes, "UTF-8"); //문자열로 출력하기 위해
 
+					// 5. 사용자 공개키로 서명 복호화 -> 서명 검증
 					String userPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
-					PublicKey userPublicKey = KeyManager.loadPublicKey(userPubKeyPath);
-					boolean isValid = SignatureManager.verifySignature(dataBytes, signatureBytes, userPublicKey);
+					PublicKey userPublicKey;
+					try (ObjectInputStream keyIn = new ObjectInputStream(new FileInputStream(userPubKeyPath))) {
+					    userPublicKey = (PublicKey) keyIn.readObject();
+					}
+					Signature sig = Signature.getInstance("SHA256withRSA");
+					sig.initVerify(userPublicKey);
+					sig.update(dataBytes);
+					boolean isValid = sig.verify(signatureBytes);
+
 
 					if (!isValid) {
-						request.setAttribute("result", "❌ 서명 검증 실패: 위조된 데이터일 수 있습니다.");
+						request.setAttribute("result", "서명 검증 실패: 위조된 데이터일 수 있습니다.");
 					} else {
 						request.setAttribute("result", originalData);
 					}
 
 				} catch (Exception ex) {
-					request.setAttribute("result", "❌ 복호화 실패: " + ex.getMessage());
+					request.setAttribute("result", "복호화 실패: " + ex.getMessage());
 				}
 			}
 
 		} catch (Exception e) {
-			request.setAttribute("result", "❌ 오류 발생: " + e.getMessage());
+			e.printStackTrace();
+			request.setAttribute("result", "오류 발생: " + e.getMessage());
 		}
 
 		request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);
