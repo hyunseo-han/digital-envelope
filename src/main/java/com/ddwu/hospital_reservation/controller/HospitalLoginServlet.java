@@ -9,6 +9,7 @@ import jakarta.servlet.http.*;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,11 +24,11 @@ public class HospitalLoginServlet extends HttpServlet {
             throws ServletException, java.io.IOException {
 
     	//사용자 정보 가져오기
-        String username = request.getParameter("username");
-        String password = request.getParameter("password");
+    	String username = request.getParameter("username");
+    	byte[] passwordBytes = request.getParameter("password").getBytes(StandardCharsets.UTF_8);  // String → byte
         boolean rememberMe = request.getParameter("rememberme") != null;
 
-        System.out.println("[DEBUG] 로그인 요청 수신 - 입력 ID: " + username + ", 입력 PW: " + password);
+        System.out.println("[DEBUG] 로그인 요청 수신 - 입력 ID: " + username + ", 입력 PW: " + passwordBytes);
 
         //Map으로 변환-> loginService로 위임
         Map<String, String> userMap = new HashMap<>();
@@ -43,7 +44,7 @@ public class HospitalLoginServlet extends HttpServlet {
         String storedHashedPw = userMap.get(username);
 
         //성공 시 세션 생성
-        if (loginService.checkLogin(password, storedHashedPw)) {
+        if (loginService.checkLogin(passwordBytes, storedHashedPw)) {
             HttpSession session = request.getSession();
             session.invalidate(); // 기존 세션 제거
             session = request.getSession(true);
@@ -54,7 +55,11 @@ public class HospitalLoginServlet extends HttpServlet {
             if (rememberMe) {
                 System.out.println("[DEBUG] Remember Me 기능 실행");
 
-                String token = java.util.UUID.randomUUID().toString();
+                SecureRandom secureRandom = new SecureRandom();
+                byte[] tokenBytes = new byte[16]; // 128비트 토큰
+                secureRandom.nextBytes(tokenBytes);
+                String token = CryptoUtil.encodeBase64Url(tokenBytes); // Base64URL 인코딩
+
                 Map<String, String> rememberMeMap = (Map<String, String>) getServletContext().getAttribute("rememberMeMap");
                 if (rememberMeMap == null) {
                     rememberMeMap = new HashMap<>();
@@ -64,7 +69,7 @@ public class HospitalLoginServlet extends HttpServlet {
 
                 //쿠키값 cryptoUtil (username과 랜덤토큰 :로 연결)
                 String raw = username + ":" + token;
-                String encoded = CryptoUtil.encodeBase64Url(raw);
+                String encoded = CryptoUtil.encodeBase64Url(raw.getBytes(StandardCharsets.UTF_8));
                 Cookie loginCookie = new Cookie("rememberme", encoded);
                 loginCookie.setMaxAge(60 * 60); // 1시간
                 loginCookie.setPath("/");

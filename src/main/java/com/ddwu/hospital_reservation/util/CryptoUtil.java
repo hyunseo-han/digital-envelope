@@ -3,8 +3,8 @@ package com.ddwu.hospital_reservation.util;
 import java.util.Base64;
 
 public class CryptoUtil {
-    public static String encodeBase64Url(String raw) {
-        return Base64.getUrlEncoder().encodeToString(raw.getBytes());
+    public static String encodeBase64Url(byte[] tokenBytes) {
+        return Base64.getUrlEncoder().encodeToString(tokenBytes);
     }
 
     public static String decodeBase64Url(String encoded) {
