@@ -1,25 +1,19 @@
 package com.ddwu.hospital_reservation.controller;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.util.Arrays;
-
-import javax.crypto.Cipher;
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-
-import com.ddwu.hospital_reservation.security.KeyManager;
-import com.ddwu.hospital_reservation.security.SignatureManager;
+import com.ddwu.hospital_reservation.manager.EnvelopeManager;
+import com.ddwu.hospital_reservation.manager.KeyManager;
+import com.ddwu.hospital_reservation.manager.SignatureManager;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.*;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import java.io.*;
+import java.nio.file.Files;
+import java.security.*;
+import java.util.Arrays;
 
 @WebServlet("/verify-reservation")
 public class VerifyReservationServlet extends HttpServlet {
@@ -48,6 +42,7 @@ public class VerifyReservationServlet extends HttpServlet {
 		}
 
 		try {
+			// 1. key, 전자봉투 경로 
 			String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
 			File envelopeFile = new File(folderPath, "reservation_envelope.bin");
 			File keyFile = new File(folderPath, "reservation_key.bin");
@@ -56,46 +51,43 @@ public class VerifyReservationServlet extends HttpServlet {
 				request.setAttribute("result", "❌ 예약 파일이 없습니다.");
 			} else {
 				try {
+					//1. 암호화된 데이터와 AES 키 불러오기
 					byte[] encryptedEnvelope = Files.readAllBytes(envelopeFile.toPath());
 					byte[] encryptedAESKey = Files.readAllBytes(keyFile.toPath());
+					
+					//2. 병원 개인키로 AES키 복호화
+					String privateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_private.key");
+	                PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
+	                SecretKey aesKey = EnvelopeManager.decryptRSA(encryptedAESKey, hospitalPrivateKey);
 
-					String privateKeyPath = getServletContext()
-							.getRealPath("/WEB-INF/classes/keys/hospital_private.key");
-					PrivateKey hospitalPrivateKey = KeyManager.loadPrivateKey(privateKeyPath);
+	                //3. AES로 예약 데이터 복호화
+	                byte[] decryptedContent = EnvelopeManager.decryptAES(encryptedEnvelope, aesKey);
+	              
+	                //4. 데이터, 서명 분리
+	                byte[][] parts = EnvelopeManager.splitEnvelope(decryptedContent, 128);
+	                byte[] dataBytes = parts[0];
+	                byte[] signatureBytes = parts[1];
+	                String originalData = new String(dataBytes, "UTF-8");// 출력할 수 있게
 
-					Cipher rsaCipher = Cipher.getInstance("RSA");
-					rsaCipher.init(Cipher.DECRYPT_MODE, hospitalPrivateKey);
-					byte[] aesKeyBytes = rsaCipher.doFinal(encryptedAESKey);
-					SecretKey aesKey = new SecretKeySpec(aesKeyBytes, "AES");
-
-					Cipher aesCipher = Cipher.getInstance("AES");
-					aesCipher.init(Cipher.DECRYPT_MODE, aesKey);
-					byte[] decryptedContent = aesCipher.doFinal(encryptedEnvelope);
-
-					int signatureLength = 256;
-					byte[] dataBytes = Arrays.copyOfRange(decryptedContent, 0,
-							decryptedContent.length - signatureLength);
-					byte[] signatureBytes = Arrays.copyOfRange(decryptedContent,
-							decryptedContent.length - signatureLength, decryptedContent.length);
-					String originalData = new String(dataBytes, "UTF-8");
-
-					String userPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
-					PublicKey userPublicKey = KeyManager.loadPublicKey(userPubKeyPath);
-					boolean isValid = SignatureManager.verifySignature(dataBytes, signatureBytes, userPublicKey);
+					// 5. 사용자 공개키로 서명 복호화 -> 서명 검증
+	                String userPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_public.key");
+	                PublicKey userPublicKey = KeyManager.loadPublicKey(userPubKeyPath);
+	                boolean isValid = SignatureManager.verify(dataBytes, signatureBytes, userPublicKey);
 
 					if (!isValid) {
-						request.setAttribute("result", "❌ 서명 검증 실패: 위조된 데이터일 수 있습니다.");
+						request.setAttribute("result", "서명 검증 실패: 위조된 데이터일 수 있습니다.");
 					} else {
 						request.setAttribute("result", originalData);
 					}
 
 				} catch (Exception ex) {
-					request.setAttribute("result", "❌ 복호화 실패: " + ex.getMessage());
+					request.setAttribute("result", "복호화 실패: " + ex.getMessage());
 				}
 			}
 
 		} catch (Exception e) {
-			request.setAttribute("result", "❌ 오류 발생: " + e.getMessage());
+			e.printStackTrace();
+			request.setAttribute("result", "오류 발생: " + e.getMessage());
 		}
 
 		request.getRequestDispatcher("/WEB-INF/views/verify_reservation.jsp").forward(request, response);

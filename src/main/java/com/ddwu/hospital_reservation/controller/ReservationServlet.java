@@ -1,11 +1,7 @@
 package com.ddwu.hospital_reservation.controller;
 
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-
-import com.ddwu.hospital_reservation.security.KeyManager;
-import com.ddwu.hospital_reservation.security.SignatureManager;
+import com.ddwu.hospital_reservation.dto.ReservationInfo;
+import com.ddwu.hospital_reservation.service.ReservationService;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -13,18 +9,18 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.PrivateKey;
-import java.security.PublicKey;
 
 @WebServlet("/reserve")
 public class ReservationServlet extends HttpServlet {
+
+    private final ReservationService reservationService = new ReservationService();
+
+    @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
+            //1. 진료예약 form 데이터 가져오기
             String name = request.getParameter("name");
             String birth = request.getParameter("birth");
             String ssn = request.getParameter("ssn");
@@ -32,41 +28,18 @@ public class ReservationServlet extends HttpServlet {
             String symptom = request.getParameter("symptom");
             String date = request.getParameter("date");
 
-            String reservationData = name + "," + birth + "," + ssn + "," + department + "," + symptom + "," + date;
-            byte[] dataBytes = reservationData.getBytes("UTF-8");
+            //2. 진료예약 데이터로 dto 생성 
+            ReservationInfo info = new ReservationInfo(name, birth, ssn, department, symptom, date);
 
-            // 전자서명
-            String userPrivateKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_private.key");
-            PrivateKey userPrivateKey = KeyManager.loadPrivateKey(userPrivateKeyPath);
-            byte[] digitalSignature = SignatureManager.signData(dataBytes, userPrivateKey);
-
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            baos.write(dataBytes);
-            baos.write(digitalSignature);
-            byte[] envelopeContent = baos.toByteArray();
-
-            // AES 암호화
-            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(128);
-            SecretKey aesKey = keyGen.generateKey();
-
-            Cipher aesCipher = Cipher.getInstance("AES");
-            aesCipher.init(Cipher.ENCRYPT_MODE, aesKey);
-            byte[] encryptedEnvelope = aesCipher.doFinal(envelopeContent);
-
-            // AES 키 암호화
+            //3. 키 저장 경로 설정
+            String userKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/user_private.key");
             String hospitalPubKeyPath = getServletContext().getRealPath("/WEB-INF/classes/keys/hospital_public.key");
-            PublicKey hospitalPublicKey = KeyManager.loadPublicKey(hospitalPubKeyPath);
-            Cipher rsaCipher = Cipher.getInstance("RSA");
-            rsaCipher.init(Cipher.ENCRYPT_MODE, hospitalPublicKey);
-            byte[] encryptedAESKey = rsaCipher.doFinal(aesKey.getEncoded());
-            String folderPath = getServletContext().getRealPath("/WEB-INF/reservations");
+            String saveDir = getServletContext().getRealPath("/WEB-INF/reservations");
 
-            // 단일 파일 저장
-            Files.write(Paths.get(folderPath, "reservation_envelope.bin"), encryptedEnvelope);
-            Files.write(Paths.get(folderPath, "reservation_key.bin"), encryptedAESKey);
+            //4. 전자봉투
+            reservationService.processReservation(info, userKeyPath, hospitalPubKeyPath, saveDir);
 
-            request.setAttribute("message", "✅ 예약 요청이 저장되었습니다.");
+            request.setAttribute("message", "예약 요청이 저장되었습니다.");
             request.getRequestDispatcher("/WEB-INF/views/result.jsp").forward(request, response);
 
         } catch (Exception e) {
