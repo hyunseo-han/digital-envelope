@@ -91,6 +91,12 @@
         }
     </style>
 </head>
+<%@ page import="java.time.LocalDate" %>
+<%
+    String today = LocalDate.now().toString(); // "yyyy-MM-dd" 형식
+    request.setAttribute("today", today);
+%>
+
 <body>
     <div class="container">
         <div class="form-card">
@@ -160,7 +166,8 @@
                 <textarea name="symptom" required></textarea>
 
                 <label>예약일자</label>
-                <input type="date" name="date" required>
+                <input type="date" name="date" min="${today}" required>
+
 
                 <input type="submit" value="확인">
             </form>
