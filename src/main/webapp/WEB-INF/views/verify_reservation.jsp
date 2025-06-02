@@ -82,11 +82,6 @@
     <div class="verify-container">
         <h2>최신 진료 예약 내역</h2>
 
-        <!-- 검증 실행 버튼 -->
-        <form action="${pageContext.request.contextPath}/verify-reservation" method="get">
-            <input type="submit" value="검증 실행">
-        </form>
-
         <!-- 로그아웃 버튼 -->
         <form action="${pageContext.request.contextPath}/" method="get">
             <input type="submit" value="로그아웃" style="background-color: #ccc; color: #333;">
