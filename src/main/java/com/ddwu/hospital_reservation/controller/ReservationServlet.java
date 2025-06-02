@@ -45,7 +45,7 @@ public class ReservationServlet extends HttpServlet {
         } catch (Exception e) {
             e.printStackTrace();
             request.setAttribute("error", "오류 발생: " + e.getMessage());
-            request.getRequestDispatcher("/WEB-INF/views/error.jsp").forward(request, response);
+            request.getRequestDispatcher("error.jsp").forward(request, response);
         }
     }
 }
