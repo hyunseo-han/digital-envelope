@@ -11,6 +11,8 @@ import java.nio.file.*;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 
+import com.ddwu.hospital_reservation.exception.KeyGenerationException;
+
 @WebServlet("/generate-keys")
 public class KeyGenServlet extends HttpServlet {
 
@@ -48,10 +50,14 @@ public class KeyGenServlet extends HttpServlet {
     }
 
     //키쌍 생성 메서드
-    private KeyPair generateRSAKeyPair() throws Exception {
-        KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        keyGen.initialize(1024);
-        return keyGen.generateKeyPair();
+    private KeyPair generateRSAKeyPair() throws KeyGenerationException {
+        try{
+        	KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+	        keyGen.initialize(1024);
+	        return keyGen.generateKeyPair();
+        } catch(Exception e) {
+        	throw new KeyGenerationException("AES 키 생성 실패", e);
+        }
     }
 
     //.key 파일로 저장하는 메서드
