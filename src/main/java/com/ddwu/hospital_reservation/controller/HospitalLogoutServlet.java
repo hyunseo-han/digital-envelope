@@ -30,6 +30,8 @@ public class HospitalLogoutServlet extends HttpServlet {
 					c.setValue(""); // 값 비우기
 					c.setPath("/"); // 경로 명확히 지정
 					c.setMaxAge(0); // 즉시 만료
+					System.out.println("Deleting cookie: " + c.getName());
+
 					response.addCookie(c); // 변경 적용
 				}
 			}

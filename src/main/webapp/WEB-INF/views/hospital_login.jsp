@@ -81,8 +81,7 @@ input[type="submit"]:hover {
 				name="username" required> <label for="password">PW</label> <input
 				type="password" id="password" name="password" required> <label>
 				<input type="checkbox" name="rememberme"> 로그인 상태 유지
-			</label> <br />
-			<input type="submit" value="로그인">
+			</label> <br /> <input type="submit" value="로그인">
 		</form>
 
 	</div>
